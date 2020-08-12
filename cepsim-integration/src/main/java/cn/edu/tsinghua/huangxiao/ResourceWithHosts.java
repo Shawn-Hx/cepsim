@@ -5,7 +5,7 @@ import com.alibaba.fastjson.annotation.JSONField;
 
 import java.util.List;
 
-public class Resource {
+public class ResourceWithHosts {
 
     @JSONField
     public List<Host> hosts;
@@ -27,26 +27,14 @@ public class Resource {
         public List<Slot> slots;
     }
 
-    public static class Slot {
-        @JSONField
-        public int id;
-        @JSONField
-        public int cpu;
-        @JSONField
-        public int memory;
-        @JSONField
-        public int bandwidth;
-    }
-
-
-    public static Resource parseJson(String json) {
-        Resource resource = JSON.parseObject(json, Resource.class);
+    public static ResourceWithHosts parseJson(String json) {
+        ResourceWithHosts resourceWithHosts = JSON.parseObject(json, ResourceWithHosts.class);
 //        int totalSlots = 0;
 //        for (Host host : resource.hosts) {
 //            totalSlots += host.slots.size();
 //        }
 //        resource.totalSlotNum = totalSlots;
-        return resource;
+        return resourceWithHosts;
     }
 
 }

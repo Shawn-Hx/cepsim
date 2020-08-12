@@ -1,44 +1,46 @@
-[
-  {
-    "id": 1,
-    "cpu": 2,
-    "mips": 2500,
-    "memory": 2048,
-    "bandwidth": 1000
-  },
-  {
-    "id": 2,
-    "cpu": 2,
-    "mips": 2500,
-    "memory": 2048,
-    "bandwidth": 1000
-  },
-  {
-    "id": 3,
-    "cpu": 2,
-    "mips": 2500,
-    "memory": 2048,
-    "bandwidth": 1000
-  },
-  {
-    "id": 4,
-    "cpu": 2,
-    "mips": 2500,
-    "memory": 2048,
-    "bandwidth": 1000
-  },
-  {
-    "id": 5,
-    "cpu": 2,
-    "mips": 2500,
-    "memory": 2048,
-    "bandwidth": 1000
-  },
-  {
-    "id": 6,
-    "cpu": 2,
-    "mips": 2500,
-    "memory": 2048,
-    "bandwidth": 1000
-  }
-]
+{
+  "slots": [
+    {
+      "id": 1,
+      "cpu": 2,
+      "mips": 2500,
+      "memory": 2048,
+      "bandwidth": 1000
+    },
+    {
+      "id": 2,
+      "cpu": 2,
+      "mips": 2500,
+      "memory": 2048,
+      "bandwidth": 1000
+    },
+    {
+      "id": 3,
+      "cpu": 2,
+      "mips": 2500,
+      "memory": 2048,
+      "bandwidth": 1000
+    },
+    {
+      "id": 4,
+      "cpu": 2,
+      "mips": 2500,
+      "memory": 2048,
+      "bandwidth": 1000
+    },
+    {
+      "id": 5,
+      "cpu": 2,
+      "mips": 2500,
+      "memory": 2048,
+      "bandwidth": 1000
+    },
+    {
+      "id": 6,
+      "cpu": 2,
+      "mips": 2500,
+      "memory": 2048,
+      "bandwidth": 1000
+    }
+  ]
+}
