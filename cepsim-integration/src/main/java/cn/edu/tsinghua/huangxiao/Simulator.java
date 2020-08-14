@@ -84,7 +84,6 @@ public class Simulator {
 
     private static List<Cloudlet> createCloudlets(Graph graph, Map<Integer, Integer> placementMap, CepSimBroker broker, int iterations) {
         List<Cloudlet> cloudlets = new ArrayList<>();
-//        Set<Query> queries = new HashSet<>();
 
         Map<Integer, EventProducer> producerMap = new HashMap<>();
         Map<Integer, EventConsumer> consumerMap = new HashMap<>();
@@ -150,13 +149,12 @@ public class Simulator {
         int i = 0;
         for (Integer slotID : slotToVertices.keySet()) {
             Placement p = Placement.apply(slotToVertices.get(slotID), slotID);
-            PlacementExecutor executor = PlacementExecutor.apply("executor" + i, p,
+            PlacementExecutor executor = PlacementExecutor.apply("cl" + i, p,
                     DynOpScheduleStrategy.apply(UniformAllocationStrategy.apply()), iterations, network);
             CepQueryCloudlet cloudlet = new CepQueryCloudlet(i, executor, false);
             cloudlet.setUserId(broker.getId());
             cloudlets.add(cloudlet);
         }
-
         return cloudlets;
     }
 
@@ -192,11 +190,8 @@ public class Simulator {
 
         broker.submitCloudletList(cloudletList);
 
-//        long start = System.nanoTime();
         CloudSim.startSimulation();
         CloudSim.stopSimulation();
-//        double time = (System.nanoTime() - start) / (1e6);
-//        System.out.println("Time [" + time + "]");
 
         List<Cloudlet> newList = broker.getCloudletReceivedList();
 
@@ -215,13 +210,10 @@ public class Simulator {
                 }
                 System.out.println("------");
                 for (Vertex consumer: JavaConversions.asJavaIterable(q.consumers())) {
-                    // TODO : throughput or throughputByMinute ?
-//                    Collection<Double> values = cepCl.getThroughputByMinute(consumer).values();
-//                    for (double value : values) {
-//                        reward += value;
-//                    }
-//                    reward /= values.size();
                     double throughput = cepCl.getThroughput(consumer);
+                    if (Double.isNaN(throughput)) {
+                        continue;
+                    }
                     reward += throughput;
                     i++;
                 }
@@ -231,7 +223,7 @@ public class Simulator {
         return reward;
     }
 
-    public static double getReward(String dagJson, String resJson, String nodeOrderJson, String placementJson) throws Exception {
+    public static double getThroughput(String dagJson, String resJson, String nodeOrderJson, String placementJson) throws Exception {
         Graph graph = Graph.parseJson(dagJson);
         ResourceOnlySlots resource = ResourceOnlySlots.parseJson(resJson);
         List<Integer> nodeOrder = JSON.parseArray(nodeOrderJson, Integer.class);
@@ -249,19 +241,21 @@ public class Simulator {
 
     public static void main(String[] args) throws Exception {
         String dagFileName = "graph_0.json";
-//        String resourceFileName = "resources_with_hosts.json";
         String resourceFileName = "resources_only_slots.json";
 
         File dagFile = new File(dagFileName);
         File resourceFile = new File(resourceFileName);
 
         Graph graph = Graph.parseJson(Util.fileToString(dagFile));
-        // TODO parse resources
-//        ResourceWithHosts resourceWithHosts = ResourceWithHosts.parseJson(Util.fileToString(resourceFile));
         ResourceOnlySlots resourceOnlySlots = ResourceOnlySlots.parseJson(Util.fileToString(resourceFile));
-        // TODO parse placement
+        Map<Integer, Integer> placementMap = new HashMap<>();
+        placementMap.put(0, 1);
+        placementMap.put(1, 1);
+        placementMap.put(2, 2);
+        placementMap.put(3, 2);
 
-        simulate(graph, resourceOnlySlots, null, 0.1, 1);
+        double reward = simulate(graph, resourceOnlySlots, placementMap, 0.1, 1);
+        System.out.println("reward: " + reward);
     }
 
 
