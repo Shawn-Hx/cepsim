@@ -1,7 +1,6 @@
 package cn.edu.tsinghua.huangxiao;
 
 import ca.uwo.eng.sel.cepsim.PlacementExecutor;
-import ca.uwo.eng.sel.cepsim.example.CepSimAvgWindow;
 import ca.uwo.eng.sel.cepsim.gen.Generator;
 import ca.uwo.eng.sel.cepsim.gen.UniformGenerator;
 import ca.uwo.eng.sel.cepsim.integr.CepQueryCloudlet;
@@ -12,10 +11,7 @@ import ca.uwo.eng.sel.cepsim.network.FixedDelayNetworkInterface;
 import ca.uwo.eng.sel.cepsim.network.NetworkInterface;
 import ca.uwo.eng.sel.cepsim.placement.Placement;
 import ca.uwo.eng.sel.cepsim.query.*;
-import ca.uwo.eng.sel.cepsim.sched.DefaultOpScheduleStrategy;
 import ca.uwo.eng.sel.cepsim.sched.DynOpScheduleStrategy;
-import ca.uwo.eng.sel.cepsim.sched.OpScheduleStrategy;
-import ca.uwo.eng.sel.cepsim.sched.alloc.AllocationStrategy;
 import ca.uwo.eng.sel.cepsim.sched.alloc.UniformAllocationStrategy;
 import com.alibaba.fastjson.JSON;
 import org.cloudbus.cloudsim.*;
@@ -27,22 +23,13 @@ import scala.Tuple3;
 import scala.collection.JavaConversions;
 
 import java.io.File;
-import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class Simulator {
 
     private static final Long DURATION = 301L;
-    private static final int VM_NUMBER = 1;
     private static final int DEFAULT_STORAGE = 1000_000;
-
-    public enum SchedStrategyEnum {
-        DEFAULT, DYNAMIC
-    }
-
-    public enum AllocStrategyEnum {
-        UNIFORM, WEIGHTED
-    }
 
     private static Datacenter createDataCenter(String name, ResourceOnlySlots resource, double simInterval) throws Exception {
         List<Host> hostList = new ArrayList<>();
@@ -154,6 +141,7 @@ public class Simulator {
             CepQueryCloudlet cloudlet = new CepQueryCloudlet(i, executor, false);
             cloudlet.setUserId(broker.getId());
             cloudlets.add(cloudlet);
+            i++;
         }
         return cloudlets;
     }
@@ -174,11 +162,11 @@ public class Simulator {
         for (Slot slot : resource.slots) {
             int vmid = slot.id;
             int mips = slot.mips;
-            long size = 10000;
+            long size = 10000;      // image size (MB)
             int ram = slot.memory;
             long bw = slot.bandwidth;
             int pesNumber = slot.cpu;
-            String vmm = "Xen";
+            String vmm = "Xen";     // VMM name
 
             Vm vm = new Vm(vmid, brokerId, mips, pesNumber, ram, bw, size, vmm, new CepQueryCloudletScheduler());
             vmList.add(vm);
@@ -194,6 +182,7 @@ public class Simulator {
         CloudSim.stopSimulation();
 
         List<Cloudlet> newList = broker.getCloudletReceivedList();
+        printCloudletList(newList);
 
         double reward = 0;
         int i = 0;
@@ -223,6 +212,36 @@ public class Simulator {
         return reward;
     }
 
+    private static void printCloudletList(List<Cloudlet> list) {
+        int size = list.size();
+        Cloudlet cloudlet;
+
+        String indent = "    ";
+        Log.printLine();
+        Log.printLine("========== OUTPUT ==========");
+        Log.printLine("Cloudlet ID" + indent + "STATUS" + indent
+                + "Data center ID" + indent + "VM ID" + indent + "Time" + indent
+                + "Start Time" + indent + "Finish Time");
+
+        DecimalFormat dft = new DecimalFormat("###.##");
+        for (int i = 0; i < size; i++) {
+            cloudlet = list.get(i);
+            Log.print(indent + cloudlet.getCloudletId() + indent + indent);
+
+            if (cloudlet.getCloudletStatus() == Cloudlet.SUCCESS) {
+                Log.print("SUCCESS");
+
+                Log.printLine(indent + indent + cloudlet.getResourceId()
+                        + indent + indent + indent + cloudlet.getVmId()
+                        + indent + indent
+                        + dft.format(cloudlet.getActualCPUTime()) + indent
+                        + indent + dft.format(cloudlet.getExecStartTime())
+                        + indent + indent
+                        + dft.format(cloudlet.getFinishTime()));
+            }
+        }
+    }
+
     public static double getThroughput(String dagJson, String resJson, String nodeOrderJson, String placementJson) throws Exception {
         Graph graph = Graph.parseJson(dagJson);
         ResourceOnlySlots resource = ResourceOnlySlots.parseJson(resJson);
@@ -240,21 +259,28 @@ public class Simulator {
     }
 
     public static void main(String[] args) throws Exception {
-        String dagFileName = "graph_0.json";
-        String resourceFileName = "resources_only_slots.json";
+        String dagFileName = "dataset_lq_6/graph_487.json";
+        String resourceFileName = "resource_data/resources_only_slots.json";
+        String nodeOrder = "[0, 1, 2, 3, 4, 5]";
+        String placement = "[0, 0, 1, 0, 1, 1]";
 
-        File dagFile = new File(dagFileName);
-        File resourceFile = new File(resourceFileName);
+//        File dagFile = new File(dagFileName);
+//        File resourceFile = new File(resourceFileName);
+        File dagFile = new File(Simulator.class.getClassLoader().getResource(dagFileName).toURI());
+        File resourceFile = new File(Simulator.class.getClassLoader().getResource(resourceFileName).toURI());
+        List<Integer> order = JSON.parseArray(nodeOrder, Integer.class);
+        List<Integer> place = JSON.parseArray(placement, Integer.class);
 
         Graph graph = Graph.parseJson(Util.fileToString(dagFile));
-        ResourceOnlySlots resourceOnlySlots = ResourceOnlySlots.parseJson(Util.fileToString(resourceFile));
-        Map<Integer, Integer> placementMap = new HashMap<>();
-        placementMap.put(0, 1);
-        placementMap.put(1, 1);
-        placementMap.put(2, 2);
-        placementMap.put(3, 2);
+        ResourceOnlySlots totalSlots = ResourceOnlySlots.parseJson(Util.fileToString(resourceFile));
+        ResourceOnlySlots resource = totalSlots.firstNSlots(graph.numVMs);
 
-        double reward = simulate(graph, resourceOnlySlots, placementMap, 0.1, 1);
+        Map<Integer, Integer> placementMap = new HashMap<>();
+        for (int i = 0; i < place.size(); i++) {
+            placementMap.put(order.get(i), resource.getByIndex(place.get(i)).id);
+        }
+
+        double reward = simulate(graph, resource , placementMap, 0.1, 1);
         System.out.println("reward: " + reward);
     }
 

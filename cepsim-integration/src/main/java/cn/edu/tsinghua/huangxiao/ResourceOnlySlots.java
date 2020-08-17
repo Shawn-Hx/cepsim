@@ -11,6 +11,13 @@ public class ResourceOnlySlots {
     @JSONField
     public List<Slot> slots;
 
+    public ResourceOnlySlots firstNSlots(int num) {
+        assert num < slots.size();
+        ResourceOnlySlots res = new ResourceOnlySlots();
+        res.slots = this.slots.subList(0, num);
+        return res;
+    }
+
     public int totalCPU() {
         int cpu = 0;
         for (Slot slot : slots) {
