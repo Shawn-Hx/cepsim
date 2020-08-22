@@ -3,6 +3,7 @@ package cn.edu.tsinghua.huangxiao;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.annotation.JSONField;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -11,10 +12,25 @@ public class ResourceOnlySlots {
     @JSONField
     public List<Slot> slots;
 
+    public ResourceOnlySlots() {
+        slots = new ArrayList<>();
+    }
+
     public ResourceOnlySlots firstNSlots(int num) {
         assert num < slots.size();
         ResourceOnlySlots res = new ResourceOnlySlots();
         res.slots = this.slots.subList(0, num);
+        return res;
+    }
+
+    public ResourceOnlySlots chooseSlots(List<Integer> selectedSlotsIDs) {
+        assert selectedSlotsIDs.size() < slots.size();
+        ResourceOnlySlots res = new ResourceOnlySlots();
+        for (Slot slot: this.slots) {
+            if (selectedSlotsIDs.contains(slot.id)) {
+                res.slots.add(slot);
+            }
+        }
         return res;
     }
 

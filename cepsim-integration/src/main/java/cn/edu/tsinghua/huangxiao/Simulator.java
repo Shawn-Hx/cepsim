@@ -28,6 +28,7 @@ import java.util.*;
 
 public class Simulator {
 
+    private static final boolean OUTPUT = true;
     private static final Long DURATION = 301L;
     private static final int DEFAULT_STORAGE = 1000_000;
 
@@ -51,11 +52,11 @@ public class Simulator {
         String arch = "x86";
         String os = "Linux";
         String vmm = "Xen";
-        double time_zone = 10.0; // time zone this resource located
-        double cost = 3.0; // the cost of using processing in this resource
-        double costPerMem = 0.05; // the cost of using memory in this resource
+        double time_zone = 10.0;    // time zone this resource located
+        double cost = 3.0;          // the cost of using processing in this resource
+        double costPerMem = 0.05;   // the cost of using memory in this resource
         double costPerStorage = 0.001; // the cost of using storage in this
-        double costPerBw = 0.0; // the cost of using bw in this resource
+        double costPerBw = 0.0;     // the cost of using bw in this resource
         LinkedList<Storage> storageList = new LinkedList<>(); // we are not adding SAN devices by now
 
         DatacenterCharacteristics characteristics = new DatacenterCharacteristics(
@@ -75,7 +76,7 @@ public class Simulator {
         Map<Integer, EventProducer> producerMap = new HashMap<>();
         Map<Integer, EventConsumer> consumerMap = new HashMap<>();
         Map<Integer, Operator> operatorMap = new HashMap<>();
-        // TODO check UniformGenerator param
+        // Attention: use eventRate or maxThroughput
         Generator generator = new UniformGenerator(graph.eventRate);
 
         Set<Vertex> vertices = new HashSet<>();
@@ -136,6 +137,7 @@ public class Simulator {
         int i = 0;
         for (Integer slotID : slotToVertices.keySet()) {
             Placement p = Placement.apply(slotToVertices.get(slotID), slotID);
+            // TODO schedule policy, should refer to CEPSim's paper
             PlacementExecutor executor = PlacementExecutor.apply("cl" + i, p,
                     DynOpScheduleStrategy.apply(UniformAllocationStrategy.apply()), iterations, network);
             CepQueryCloudlet cloudlet = new CepQueryCloudlet(i, executor, false);
@@ -182,7 +184,9 @@ public class Simulator {
         CloudSim.stopSimulation();
 
         List<Cloudlet> newList = broker.getCloudletReceivedList();
-        printCloudletList(newList);
+        if (OUTPUT) {
+            printCloudletList(newList);
+        }
 
         double reward = 0;
         int i = 0;
@@ -192,12 +196,14 @@ public class Simulator {
             CepQueryCloudlet cepCl = (CepQueryCloudlet) cl;
 
             for (Query q : cepCl.getQueries()) {
-                System.out.println("Query [" + q.id() + "]");
-                for (Vertex consumer: JavaConversions.asJavaIterable(q.consumers())) {
-                    System.out.println("Latencies: " + cepCl.getLatencyByMinute(consumer));
-                    System.out.println("Throughputs: " + cepCl.getThroughputByMinute(consumer));
+                if (OUTPUT) {
+                    System.out.println("Query [" + q.id() + "]");
+                    for (Vertex consumer : JavaConversions.asJavaIterable(q.consumers())) {
+                        System.out.println("Latencies: " + cepCl.getLatencyByMinute(consumer));
+                        System.out.println("Throughputs: " + cepCl.getThroughputByMinute(consumer));
+                    }
+                    System.out.println("------");
                 }
-                System.out.println("------");
                 for (Vertex consumer: JavaConversions.asJavaIterable(q.consumers())) {
                     double throughput = cepCl.getThroughput(consumer);
                     if (Double.isNaN(throughput)) {
@@ -224,13 +230,11 @@ public class Simulator {
                 + "Start Time" + indent + "Finish Time");
 
         DecimalFormat dft = new DecimalFormat("###.##");
-        for (int i = 0; i < size; i++) {
-            cloudlet = list.get(i);
+        for (Cloudlet value : list) {
+            cloudlet = value;
             Log.print(indent + cloudlet.getCloudletId() + indent + indent);
-
             if (cloudlet.getCloudletStatus() == Cloudlet.SUCCESS) {
                 Log.print("SUCCESS");
-
                 Log.printLine(indent + indent + cloudlet.getResourceId()
                         + indent + indent + indent + cloudlet.getVmId()
                         + indent + indent
@@ -257,32 +261,5 @@ public class Simulator {
 
         return simulate(graph, resource, placementMap, 0.1, 1);
     }
-
-    public static void main(String[] args) throws Exception {
-        String dagFileName = "dataset_lq_6/graph_487.json";
-        String resourceFileName = "resource_data/resources_only_slots.json";
-        String nodeOrder = "[0, 1, 2, 3, 4, 5]";
-        String placement = "[0, 0, 1, 0, 1, 1]";
-
-//        File dagFile = new File(dagFileName);
-//        File resourceFile = new File(resourceFileName);
-        File dagFile = new File(Simulator.class.getClassLoader().getResource(dagFileName).toURI());
-        File resourceFile = new File(Simulator.class.getClassLoader().getResource(resourceFileName).toURI());
-        List<Integer> order = JSON.parseArray(nodeOrder, Integer.class);
-        List<Integer> place = JSON.parseArray(placement, Integer.class);
-
-        Graph graph = Graph.parseJson(Util.fileToString(dagFile));
-        ResourceOnlySlots totalSlots = ResourceOnlySlots.parseJson(Util.fileToString(resourceFile));
-        ResourceOnlySlots resource = totalSlots.firstNSlots(graph.numVMs);
-
-        Map<Integer, Integer> placementMap = new HashMap<>();
-        for (int i = 0; i < place.size(); i++) {
-            placementMap.put(order.get(i), resource.getByIndex(place.get(i)).id);
-        }
-
-        double reward = simulate(graph, resource , placementMap, 0.1, 1);
-        System.out.println("reward: " + reward);
-    }
-
 
 }
