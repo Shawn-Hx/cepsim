@@ -25,6 +25,11 @@
         </executions>
         <configuration>
           <minimizeJar>true</minimizeJar>
+          <transformers>
+            <transformer>
+              <mainClass>cn.edu.tsinghua.huangxiao.Simulator</mainClass>
+            </transformer>
+          </transformers>
         </configuration>
       </plugin>
     </plugins>

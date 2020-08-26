@@ -22,13 +22,18 @@ import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 import scala.Tuple3;
 import scala.collection.JavaConversions;
 
-import java.io.File;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Simulator {
-
     private static final boolean OUTPUT = true;
+//    private static final boolean TIMEOUT = true;
+    private static final int TIMEOUT_SECONDS = 10;
+
+    public static final double SIM_INTERVAL = 0.1;
+    public static final int ITERATIONS = 1;
+
     private static final Long DURATION = 301L;
     private static final int DEFAULT_STORAGE = 1000_000;
 
@@ -188,7 +193,7 @@ public class Simulator {
             printCloudletList(newList);
         }
 
-        double reward = 0;
+        double throughput = 0;
         int i = 0;
         for (Cloudlet cl : newList) {
             if (!(cl instanceof CepQueryCloudlet))
@@ -205,21 +210,20 @@ public class Simulator {
                     System.out.println("------");
                 }
                 for (Vertex consumer: JavaConversions.asJavaIterable(q.consumers())) {
-                    double throughput = cepCl.getThroughput(consumer);
-                    if (Double.isNaN(throughput)) {
+                    double consumerThroughput = cepCl.getThroughput(consumer);
+                    if (Double.isNaN(consumerThroughput)) {
                         continue;
                     }
-                    reward += throughput;
+                    throughput += consumerThroughput;
                     i++;
                 }
             }
         }
-        reward /= i;
-        return reward;
+        throughput /= i;
+        return throughput;
     }
 
     private static void printCloudletList(List<Cloudlet> list) {
-        int size = list.size();
         Cloudlet cloudlet;
 
         String indent = "    ";
@@ -246,7 +250,29 @@ public class Simulator {
         }
     }
 
-    public static double getThroughput(String dagJson, String resJson, String nodeOrderJson, String placementJson) throws Exception {
+    private static class MyCallable implements Callable<Double> {
+        Graph graph;
+        ResourceOnlySlots resource;
+        Map<Integer, Integer> placementMap;
+
+        MyCallable(Graph graph,
+                   ResourceOnlySlots resource,
+                   Map<Integer, Integer> placementMap) {
+            this.graph = graph;
+            this.resource = resource;
+            this.placementMap = placementMap;
+        }
+
+        @Override
+        public Double call() throws Exception {
+            return simulate(graph, resource, placementMap,SIM_INTERVAL, ITERATIONS);
+        }
+    }
+
+    private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    @Deprecated
+    public static double getThroughput(String dagJson, String resJson, String nodeOrderJson, String placementJson, boolean timeout) throws Exception {
         Graph graph = Graph.parseJson(dagJson);
         ResourceOnlySlots resource = ResourceOnlySlots.parseJson(resJson);
         List<Integer> nodeOrder = JSON.parseArray(nodeOrderJson, Integer.class);
@@ -259,7 +285,47 @@ public class Simulator {
             placementMap.put(nodeOrder.get(i), resource.getByIndex(placement.get(i)).id);
         }
 
-        return simulate(graph, resource, placementMap, 0.1, 1);
+        if (timeout) {
+            MyCallable callable = new MyCallable(graph, resource, placementMap);
+            FutureTask<Double> futureTask = new FutureTask<>(callable);
+            executorService.submit(futureTask);
+
+            double res;
+            try {
+                res = futureTask.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                res = -1.0d;
+            }
+            return res;
+        } else {
+            return simulate(graph, resource, placementMap, SIM_INTERVAL, ITERATIONS);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length < 4) {
+            System.out.println("Not enough params");
+            return;
+        }
+        String dagJson = args[0];
+        String resJson = args[1];
+        String nodeOrderJson = args[2];
+        String placementJson = args[3];
+
+        Graph graph = Graph.parseJson(dagJson);
+        ResourceOnlySlots resource = ResourceOnlySlots.parseJson(resJson);
+        List<Integer> nodeOrder = JSON.parseArray(nodeOrderJson, Integer.class);
+        List<Integer> placement = JSON.parseArray(placementJson, Integer.class);
+        assert nodeOrder.size() == placement.size();
+        // node id -> slot id
+        Map<Integer, Integer> placementMap = new HashMap<>();
+        for (int i = 0; i < nodeOrder.size(); i++) {
+            // This change the placement slot index to slot id
+            placementMap.put(nodeOrder.get(i), resource.getByIndex(placement.get(i)).id);
+        }
+
+        double throughput = simulate(graph, resource, placementMap, SIM_INTERVAL, ITERATIONS);
+        System.out.println("[HX]:" + throughput);
     }
 
 }
