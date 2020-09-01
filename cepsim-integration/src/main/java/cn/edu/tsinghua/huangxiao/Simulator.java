@@ -89,6 +89,7 @@ public class Simulator {
         for (Graph.Operator op : graph.operators) {
             int id = op.idx;
             Vertex curVetex;
+            // TODO operation's param "ipe" means what ?
             if (op.isSource) {
                 EventProducer producer = new EventProducer("producer" + id, op.cpu, generator, true);
                 producerMap.put(id, producer);
